@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.example" "\0"
+            VALUE "CompanyName", "com.medipill" "\0"
             VALUE "FileDescription", "medipill_monitor" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "medipill_monitor" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.medipill. All rights reserved." "\0"
             VALUE "OriginalFilename", "medipill_monitor.exe" "\0"
             VALUE "ProductName", "medipill_monitor" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
