@@ -20,7 +20,7 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.findAncestorStateOfType<AppStateProviderState>()?.widget.state ?? 
-                  _StaticState.demoState;
+                  _StaticState.cleanState;
 
     return ListenableBuilder(
       listenable: state,
@@ -33,89 +33,94 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
           ),
           body: list.isEmpty
               ? _buildEmptyState(context, state)
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: list.length,
-                  itemBuilder: (context, index) {
-                    final caretaker = list[index];
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 800),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16.0),
+                      itemCount: list.length,
+                      itemBuilder: (context, index) {
+                        final caretaker = list[index];
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    CircleAvatar(
-                                      backgroundColor: AppColors.brandStart.withValues(alpha: 0.1),
-                                      foregroundColor: AppColors.brandStart,
-                                      child: const Icon(Icons.person),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                    Row(
                                       children: [
-                                        Text(
-                                          caretaker.name,
-                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                        CircleAvatar(
+                                          backgroundColor: AppColors.brandStart.withValues(alpha: 0.1),
+                                          foregroundColor: AppColors.brandStart,
+                                          child: const Icon(Icons.person),
                                         ),
-                                        Text(
-                                          '${caretaker.relationship} • ${caretaker.phone}',
-                                          style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                                        const SizedBox(width: 12),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              caretaker.name,
+                                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                            ),
+                                            Text(
+                                              '${caretaker.relationship} • ${caretaker.phone}',
+                                              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: AppColors.statusMissed),
+                                      onPressed: () => state.deleteCaretaker(caretaker.id),
+                                    ),
                                   ],
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AppColors.statusMissed),
-                                  onPressed: () => state.deleteCaretaker(caretaker.id),
+                                const Divider(height: 24, color: AppColors.border),
+                                
+                                const Text(
+                                  'ALERT PREFERENCES',
+                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
+                                ),
+                                const SizedBox(height: 8),
+                                
+                                _buildPreferenceRow(
+                                  'Unconfirmed / Missed Medication Alert', 
+                                  caretaker.notificationPreferences['missed_medication'] ?? false,
+                                  (val) => _updatePreference(state, caretaker, 'missed_medication', val),
+                                ),
+                                _buildPreferenceRow(
+                                  'Consecutive Unconfirmed/Missed Alerts (Threshold: ${caretaker.missedThreshold} events)', 
+                                  (caretaker.notificationPreferences['missed_medication'] ?? false) && caretaker.missedThreshold > 1,
+                                  null,
+                                ),
+                                _buildPreferenceRow(
+                                  'Low Medicine Level Warning', 
+                                  caretaker.notificationPreferences['low_medicine_level'] ?? false,
+                                  (val) => _updatePreference(state, caretaker, 'low_medicine_level', val),
+                                ),
+                                _buildPreferenceRow(
+                                  'IoT Device Offline Alert', 
+                                  caretaker.notificationPreferences['device_offline'] ?? false,
+                                  (val) => _updatePreference(state, caretaker, 'device_offline', val),
+                                ),
+                                _buildPreferenceRow(
+                                  'Routine Recorded Medication Events (Disabled by default)', 
+                                  caretaker.notificationPreferences['medication_recorded'] ?? false,
+                                  (val) => _updatePreference(state, caretaker, 'medication_recorded', val),
                                 ),
                               ],
                             ),
-                            const Divider(height: 24, color: AppColors.border),
-                            
-                            const Text(
-                              'ALERT PREFERENCES',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
-                            ),
-                            const SizedBox(height: 8),
-                            
-                            _buildPreferenceRow(
-                              'Unconfirmed / Missed Medication Alert', 
-                              caretaker.notificationPreferences['missed_medication'] ?? false,
-                              (val) => _updatePreference(state, caretaker, 'missed_medication', val),
-                            ),
-                            _buildPreferenceRow(
-                              'Consecutive Unconfirmed/Missed Alerts (Threshold: ${caretaker.missedThreshold} events)', 
-                              (caretaker.notificationPreferences['missed_medication'] ?? false) && caretaker.missedThreshold > 1,
-                              null, // Fixed indicator or change threshold
-                            ),
-                            _buildPreferenceRow(
-                              'Low Medicine Level Warning', 
-                              caretaker.notificationPreferences['low_medicine_level'] ?? false,
-                              (val) => _updatePreference(state, caretaker, 'low_medicine_level', val),
-                            ),
-                            _buildPreferenceRow(
-                              'IoT Device Offline Alert', 
-                              caretaker.notificationPreferences['device_offline'] ?? false,
-                              (val) => _updatePreference(state, caretaker, 'device_offline', val),
-                            ),
-                            _buildPreferenceRow(
-                              'Routine Recorded Medication Events (Disabled by default)', 
-                              caretaker.notificationPreferences['medication_recorded'] ?? false,
-                              (val) => _updatePreference(state, caretaker, 'medication_recorded', val),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => _showAddCaretakerSheet(context, state),
@@ -139,7 +144,7 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
             Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text(
-              'No Caretakers Added',
+              'No caretaker configured.',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 8),
@@ -213,18 +218,17 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
     String selectedRelationship = 'Spouse';
     int threshold = 1;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
+    final isWide = MediaQuery.of(context).size.width >= 768;
+
+    Widget content(BuildContext ctx) {
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -233,7 +237,7 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('Add Caretaker', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                 ],
               ),
               const SizedBox(height: 16),
@@ -277,13 +281,13 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
-                  if (nameController.text.isEmpty) return;
+                  if (nameController.text.trim().isEmpty) return;
                   final caretaker = Caretaker(
                     id: 'caretaker_${DateTime.now().millisecondsSinceEpoch}',
-                    name: nameController.text,
+                    name: nameController.text.trim(),
                     relationship: selectedRelationship,
-                    phone: phoneController.text,
-                    email: emailController.text,
+                    phone: phoneController.text.trim(),
+                    email: emailController.text.trim(),
                     notificationPreferences: {
                       'missed_medication': true,
                       'low_medicine_level': true,
@@ -293,7 +297,7 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
                     missedThreshold: threshold,
                   );
                   state.addCaretaker(caretaker);
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.brandStart,
@@ -304,16 +308,36 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
               const SizedBox(height: 24),
             ],
           ),
-        );
-      },
-    );
+        ),
+      );
+    }
+
+    if (isWide) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500),
+            child: content(ctx),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (ctx) => content(ctx),
+      );
+    }
   }
 }
 
 // Fallback preview
 class _StaticState {
-  static final demoState = AppState(
-    authService: MockAuthService(),
+  static final cleanState = AppState(
+    authService: MockAuthService(seedTestAccount: false),
     notificationService: MockNotificationService(),
     imageService: MockMedicineImageService(),
     deviceService: MockDeviceService(),

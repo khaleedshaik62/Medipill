@@ -23,7 +23,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.findAncestorStateOfType<AppStateProviderState>()?.widget.state ?? 
-                  _StaticState.demoState;
+                  _StaticState.cleanState;
 
     return ListenableBuilder(
       listenable: state,
@@ -70,13 +70,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
           body: filteredList.isEmpty
               ? _buildEmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: filteredList.length,
-                  itemBuilder: (context, index) {
-                    final event = filteredList[index];
-                    return _buildEventTile(event);
-                  },
+              : Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 800),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16.0),
+                      itemCount: filteredList.length,
+                      itemBuilder: (context, index) {
+                        final event = filteredList[index];
+                        return _buildEventTile(event);
+                      },
+                    ),
+                  ),
                 ),
         );
       },
@@ -198,11 +203,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 48, color: Colors.grey.shade400),
+            Icon(Icons.history, size: 56, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             const Text(
-              'No Medication History For This Range',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
+              'No medication events recorded yet.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             const Text(
@@ -219,8 +225,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
 // Fallback preview
 class _StaticState {
-  static final demoState = AppState(
-    authService: MockAuthService(),
+  static final cleanState = AppState(
+    authService: MockAuthService(seedTestAccount: false),
     notificationService: MockNotificationService(),
     imageService: MockMedicineImageService(),
     deviceService: MockDeviceService(),

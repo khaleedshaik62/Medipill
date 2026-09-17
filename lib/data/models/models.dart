@@ -427,6 +427,7 @@ enum DeviceEvent {
 
 class DeviceStatus {
   final bool isConnected;
+  final bool isSimulated;
   final bool isWifiConnected;
   final DateTime lastSync;
   final MedicationContainerMechanismState mechanismState;
@@ -437,6 +438,7 @@ class DeviceStatus {
 
   DeviceStatus({
     this.isConnected = false,
+    this.isSimulated = false,
     this.isWifiConnected = false,
     required this.lastSync,
     this.mechanismState = MedicationContainerMechanismState.ready,
@@ -445,4 +447,10 @@ class DeviceStatus {
     this.reedSensorsNormal = false,
     this.loadCellsConnected = false,
   });
+
+  String get connectionStatusText {
+    if (isSimulated) return 'SIMULATED DEVICE — TESTING';
+    if (isConnected) return 'Connected';
+    return 'Device not connected';
+  }
 }

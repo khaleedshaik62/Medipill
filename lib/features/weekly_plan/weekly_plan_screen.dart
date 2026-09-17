@@ -36,7 +36,7 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.findAncestorStateOfType<AppStateProviderState>()?.widget.state ?? 
-                  _StaticState.demoState;
+                  _StaticState.cleanState;
 
     return ListenableBuilder(
       listenable: state,
@@ -126,13 +126,16 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
               // Planning Matrix Grid
               Expanded(
                 child: weekEvents.isEmpty
-                    ? _buildEmptyState()
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Days Header Row (MON to SUN)
+                    ? _buildEmptyState(state)
+                    : Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 1000),
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Days Header Row (MON to SUN)
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 8.0),
                               child: Row(
@@ -244,6 +247,8 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
                           ],
                         ),
                       ),
+                    ),
+                  ),
               ),
             ],
           ),
@@ -488,25 +493,58 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(AppState state) {
+    final hasFilters = _selectedMedicineFilter != 'All' || 
+                       _selectedTimeSlotFilter != 'All' || 
+                       _selectedStatusFilter != 'All';
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.calendar_today_outlined, size: 48, color: Colors.grey.shade400),
+            Icon(Icons.calendar_today_outlined, size: 56, color: Colors.grey.shade400),
             const SizedBox(height: 16),
-            const Text(
-              'No Scheduled Events For This Filter',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
+            Text(
+              hasFilters ? 'No Scheduled Events For This Filter' : 'No medications scheduled for this week.',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Use the Medicines tab to configure your medicines or clear filters.',
+            Text(
+              hasFilters 
+                  ? 'Try clearing your active filters or changing the selected week.'
+                  : 'Add your medicines to automatically schedule your weekly plan across the 4 physical containers.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary),
+              style: const TextStyle(color: AppColors.textSecondary),
             ),
+            const SizedBox(height: 24),
+            if (hasFilters)
+              OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedMedicineFilter = 'All';
+                    _selectedTimeSlotFilter = 'All';
+                    _selectedStatusFilter = 'All';
+                  });
+                },
+                child: const Text('Clear Filters'),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Navigate to the Medicines tab to add your medications.')),
+                  );
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Add Medicine'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.brandStart,
+                  foregroundColor: Colors.white,
+                ),
+              ),
           ],
         ),
       ),
@@ -638,8 +676,8 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
 
 // Fallback preview
 class _StaticState {
-  static final demoState = AppState(
-    authService: MockAuthService(),
+  static final cleanState = AppState(
+    authService: MockAuthService(seedTestAccount: false),
     notificationService: MockNotificationService(),
     imageService: MockMedicineImageService(),
     deviceService: MockDeviceService(),

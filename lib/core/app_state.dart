@@ -5,6 +5,7 @@ import '../services/auth/auth_service.dart';
 import '../services/device/device_service.dart';
 import '../services/medicine_image/medicine_image_service.dart';
 import '../services/notifications/notification_service.dart';
+import '../services/storage/local_persistence_service.dart';
 
 class AppState extends ChangeNotifier {
   // Services
@@ -12,6 +13,7 @@ class AppState extends ChangeNotifier {
   final NotificationService notificationService;
   final MedicineImageService imageService;
   final DeviceService deviceService;
+  final LocalPersistenceService? persistenceService;
 
   // Repositories
   final MedicineRepository medicineRepository;
@@ -43,6 +45,7 @@ class AppState extends ChangeNotifier {
     required this.medicineRepository,
     required this.eventRepository,
     required this.caretakerRepository,
+    this.persistenceService,
   }) {
     containers = deviceService.getContainers();
     initialization = _init();
@@ -52,6 +55,24 @@ class AppState extends ChangeNotifier {
     isLoading = true;
     notifyListeners();
 
+    // Initialize persistence for repositories and auth
+    if (medicineRepository is InMemoryMedicineRepository) {
+      await (medicineRepository as InMemoryMedicineRepository).init();
+    }
+    if (eventRepository is InMemoryEventRepository) {
+      await (eventRepository as InMemoryEventRepository).init();
+    }
+    if (caretakerRepository is InMemoryCaretakerRepository) {
+      await (caretakerRepository as InMemoryCaretakerRepository).init();
+    }
+    if (authService is MockAuthService) {
+      await (authService as MockAuthService).init();
+    }
+
+    // Load simulation mode preference
+    final isSim = await persistenceService?.loadIsSimulatedDevice() ?? false;
+    deviceService.setSimulationMode(isSim);
+
     // Setup Auth Listener
     authService.authStateChanges.listen((user) {
       currentUser = user;
@@ -59,7 +80,7 @@ class AppState extends ChangeNotifier {
     });
     currentUser = await authService.getCurrentUser();
 
-    // Load initial repository data
+    // Load repository data
     await loadMedicines();
     await loadEvents();
     await loadCaretakers();
@@ -67,12 +88,12 @@ class AppState extends ChangeNotifier {
     // Setup Device Listener
     deviceStatus = await deviceService.getDeviceStatus();
     containers = deviceService.getContainers();
-    
+
     deviceService.deviceEvents.listen((event) async {
       debugPrint('AppState: Received device event -> $event');
       deviceStatus = await deviceService.getDeviceStatus();
       containers = deviceService.getContainers();
-      
+
       if (event == DeviceEvent.medicationEvent) {
         await _recordDeviceMedicationEvent();
       }
@@ -88,6 +109,14 @@ class AppState extends ChangeNotifier {
     await deviceService.syncMedicationPlan(medicines);
 
     isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> toggleSimulationMode(bool enabled) async {
+    deviceService.setSimulationMode(enabled);
+    await persistenceService?.saveIsSimulatedDevice(enabled);
+    deviceStatus = await deviceService.getDeviceStatus();
+    containers = deviceService.getContainers();
     notifyListeners();
   }
 
@@ -171,14 +200,19 @@ class AppState extends ChangeNotifier {
     await medicineRepository.saveMedicine(medicine);
     await loadMedicines();
     await deviceService.syncMedicationPlan(medicines);
-    
+
     // Auto-generate scheduled events for this medicine across the 7-day week
     await _generateEventsForMedicine(medicine);
   }
 
   Future<void> deleteMedicine(String id) async {
     await medicineRepository.deleteMedicine(id);
+    // Keep recorded event history, remove future/unconfirmed events for this medicine
+    final remainingEvents = events.where((e) => e.medicineId != id || e.status == MedicationStatus.medicationEventRecorded).toList();
+    await eventRepository.clearAllEvents();
+    await eventRepository.saveEvents(remainingEvents);
     await loadMedicines();
+    await loadEvents();
     await deviceService.syncMedicationPlan(medicines);
   }
 
@@ -205,7 +239,7 @@ class AppState extends ChangeNotifier {
       );
       await eventRepository.saveEvent(updated);
       await loadEvents();
-      
+
       // If missed alert is triggered and caretakers configured, notify them
       if (status == MedicationStatus.missed || status == MedicationStatus.unconfirmed) {
         _triggerCaretakerAlerts(ev);
@@ -213,21 +247,21 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // Generate mock events across the Monday–Sunday week reusing the physical container
+  // Generate scheduled events across the Monday–Sunday week reusing the 4 physical containers
   Future<void> _generateEventsForMedicine(Medicine medicine) async {
     final List<MedicationEvent> newEvents = [];
     final now = DateTime.now();
-    
+
     // Current week: Monday to Sunday
     final monday = now.subtract(Duration(days: now.weekday - 1));
-    
+
     for (int day = 0; day < 7; day++) {
       final currentDayDate = monday.add(Duration(days: day));
       for (var timeStr in medicine.reminderTimes) {
         final timeParts = timeStr.split(':');
         final hour = int.parse(timeParts[0]);
         final min = int.parse(timeParts[1]);
-        
+
         final scheduledTime = DateTime(
           currentDayDate.year,
           currentDayDate.month,
@@ -237,28 +271,10 @@ class AppState extends ChangeNotifier {
         );
 
         MedicationStatus status = MedicationStatus.scheduled;
-        DateTime? eventTime;
-        String source = 'System';
-        double? weightBefore;
-        double? weightAfter;
-        double? weightChange;
-        bool confirmed = false;
-
         if (scheduledTime.isBefore(now)) {
-          // Past events in current week
-          final isMonOrWed = scheduledTime.weekday == 1 || scheduledTime.weekday == 3;
-          if (isMonOrWed) {
-            status = MedicationStatus.medicationEventRecorded;
-            eventTime = scheduledTime.add(const Duration(minutes: 5));
-            source = 'IoT Device';
-            weightBefore = 15.0;
-            weightAfter = 14.5;
-            weightChange = -0.5;
-            confirmed = true;
-          } else {
-            status = MedicationStatus.unconfirmed;
-          }
-        } else if (scheduledTime.difference(now).inHours <= 2) {
+          // Past time slots in current week are unconfirmed, not fabricated as recorded
+          status = MedicationStatus.unconfirmed;
+        } else if (scheduledTime.difference(now).inHours <= 2 && !scheduledTime.isBefore(now)) {
           status = MedicationStatus.due;
         }
 
@@ -271,15 +287,15 @@ class AppState extends ChangeNotifier {
             medicineForm: medicine.form,
             dose: medicine.dose,
             scheduledTime: scheduledTime,
-            eventTime: eventTime,
+            eventTime: null,
             containerId: medicine.containerId,
             timeSlot: medicine.timeSlot,
             status: status,
-            source: source,
-            weightBefore: weightBefore,
-            weightAfter: weightAfter,
-            weightChange: weightChange,
-            deviceConfirmed: confirmed,
+            source: 'System',
+            weightBefore: null,
+            weightAfter: null,
+            weightChange: null,
+            deviceConfirmed: false,
           ),
         );
       }
@@ -290,9 +306,11 @@ class AppState extends ChangeNotifier {
 
   // IoT event simulation hook: record when simulated sensor registers a change
   Future<void> _recordDeviceMedicationEvent() async {
+    if (!deviceService.isSimulated && !(deviceStatus?.isConnected ?? false)) return;
+
     final now = DateTime.now();
     MedicationEvent? targetEvent;
-    
+
     // Look for due or scheduled events near now
     final due = events.where((e) => e.status == MedicationStatus.due || e.status == MedicationStatus.scheduled).toList();
     if (due.isNotEmpty) {
@@ -302,17 +320,17 @@ class AppState extends ChangeNotifier {
 
     if (targetEvent != null) {
       await updateEventStatus(
-        targetEvent.id, 
+        targetEvent.id,
         MedicationStatus.medicationEventRecorded,
-        source: 'IoT Device',
+        source: deviceService.isSimulated ? 'Simulated Device' : 'IoT Device',
       );
-      
+
       // Update weight cache for the container (1 to 4)
       final containerIdx = targetEvent.containerId - 1;
       if (containerIdx >= 0 && containerIdx < containers.length) {
         final currentWeight = containers[containerIdx].currentWeight;
         final targetNewWeight = (currentWeight - 0.5).clamp(0.0, 100.0);
-        
+
         final idx = events.indexWhere((e) => e.id == targetEvent!.id);
         if (idx != -1) {
           events[idx] = events[idx].copyWith(
@@ -324,9 +342,9 @@ class AppState extends ChangeNotifier {
           await eventRepository.saveEvent(events[idx]);
           await loadEvents();
         }
-        
+
         deviceService.simulateEvent(
-          DeviceEvent.weightChanged, 
+          DeviceEvent.weightChanged,
           containerId: targetEvent.containerId,
           weightChange: -0.5,
         );
@@ -338,8 +356,8 @@ class AppState extends ChangeNotifier {
     for (var caretaker in caretakers) {
       if (caretaker.notificationPreferences['missed_medication'] == true) {
         notificationService.showCaretakerAlert(
-          caretaker, 
-          event.medicineName, 
+          caretaker,
+          event.medicineName,
           event.scheduledTime.toLocal().toString(),
           event.containerId,
           event.timeSlot,

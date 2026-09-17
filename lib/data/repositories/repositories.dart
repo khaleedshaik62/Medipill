@@ -1,4 +1,5 @@
 import '../../data/models/models.dart';
+import '../../services/storage/local_persistence_service.dart';
 
 abstract class MedicineRepository {
   Future<List<Medicine>> getMedicines();
@@ -21,60 +22,25 @@ abstract class CaretakerRepository {
 
 class InMemoryMedicineRepository implements MedicineRepository {
   final List<Medicine> _medicines = [];
+  final LocalPersistenceService? _persistenceService;
 
-  InMemoryMedicineRepository() {
-    // Seed with initial sample medicines assigned to the 4 physical containers
-    final now = DateTime.now();
-    _medicines.addAll([
-      Medicine(
-        id: 'med_1',
-        name: 'Paracetamol',
-        strength: '500 mg',
-        form: 'Tablet',
-        dose: '1 Tablet',
-        containerId: 1,
-        timeSlot: 'Morning',
-        frequency: 'Three times daily',
-        reminderTimes: ['08:00', '13:00', '20:00'],
-        startDate: now.subtract(const Duration(days: 3)),
-        endDate: now.add(const Duration(days: 14)),
-        foodInstruction: 'After food',
-        notes: 'Take with plenty of water',
-        active: true,
-      ),
-      Medicine(
-        id: 'med_2',
-        name: 'Vitamin D3',
-        strength: '1000 IU',
-        form: 'Capsule',
-        dose: '1 Capsule',
-        containerId: 1,
-        timeSlot: 'Morning',
-        frequency: 'Once daily',
-        reminderTimes: ['08:00'],
-        startDate: now.subtract(const Duration(days: 10)),
-        endDate: now.add(const Duration(days: 20)),
-        foodInstruction: 'With food',
-        notes: 'Morning energy boost',
-        active: true,
-      ),
-      Medicine(
-        id: 'med_3',
-        name: 'Metformin',
-        strength: '500 mg',
-        form: 'Tablet',
-        dose: '1 Tablet',
-        containerId: 3,
-        timeSlot: 'Evening',
-        frequency: 'Once daily',
-        reminderTimes: ['20:00'],
-        startDate: now.subtract(const Duration(days: 5)),
-        endDate: now.add(const Duration(days: 30)),
-        foodInstruction: 'With food',
-        notes: 'Take with evening meal',
-        active: true,
-      ),
-    ]);
+  InMemoryMedicineRepository({
+    LocalPersistenceService? persistenceService,
+    List<Medicine>? initialMedicines,
+  }) : _persistenceService = persistenceService {
+    if (initialMedicines != null && initialMedicines.isNotEmpty) {
+      _medicines.addAll(initialMedicines);
+    }
+  }
+
+  Future<void> init() async {
+    if (_persistenceService != null) {
+      final loaded = await _persistenceService.loadMedicines();
+      if (loaded.isNotEmpty) {
+        _medicines.clear();
+        _medicines.addAll(loaded);
+      }
+    }
   }
 
   @override
@@ -90,310 +56,41 @@ class InMemoryMedicineRepository implements MedicineRepository {
     } else {
       _medicines.add(medicine);
     }
+    if (_persistenceService != null) {
+      await _persistenceService.saveMedicines(_medicines);
+    }
   }
 
   @override
   Future<void> deleteMedicine(String id) async {
     _medicines.removeWhere((m) => m.id == id);
+    if (_persistenceService != null) {
+      await _persistenceService.saveMedicines(_medicines);
+    }
   }
 }
 
 class InMemoryEventRepository implements EventRepository {
   final List<MedicationEvent> _events = [];
+  final LocalPersistenceService? _persistenceService;
 
-  InMemoryEventRepository() {
-    // Generate realistic initial events for the current week (Monday to Sunday)
-    final now = DateTime.now();
-    final monday = now.subtract(Duration(days: now.weekday - 1));
-    
-    // Day 1: Monday - Paracetamol Morning
-    final monMorning = DateTime(monday.year, monday.month, monday.day, 8, 0);
-    _events.add(
-      MedicationEvent(
-        id: 'ev_1',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: monMorning,
-        eventTime: monMorning.add(const Duration(minutes: 6)),
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.medicationEventRecorded,
-        source: 'IoT Device',
-        weightBefore: 15.0,
-        weightAfter: 14.5,
-        weightChange: -0.5,
-        deviceConfirmed: true,
-      ),
-    );
+  InMemoryEventRepository({
+    LocalPersistenceService? persistenceService,
+    List<MedicationEvent>? initialEvents,
+  }) : _persistenceService = persistenceService {
+    if (initialEvents != null && initialEvents.isNotEmpty) {
+      _events.addAll(initialEvents);
+    }
+  }
 
-    // Day 1: Monday - Vitamin D Morning
-    _events.add(
-      MedicationEvent(
-        id: 'ev_2',
-        medicineId: 'med_2',
-        medicineName: 'Vitamin D3',
-        medicineStrength: '1000 IU',
-        medicineForm: 'Capsule',
-        dose: '1 Capsule',
-        scheduledTime: monMorning,
-        eventTime: monMorning.add(const Duration(minutes: 6)),
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.medicationEventRecorded,
-        source: 'IoT Device',
-        weightBefore: 14.5,
-        weightAfter: 14.2,
-        weightChange: -0.3,
-        deviceConfirmed: true,
-      ),
-    );
-
-    // Day 1: Monday - Paracetamol Afternoon
-    final monAfternoon = DateTime(monday.year, monday.month, monday.day, 13, 0);
-    _events.add(
-      MedicationEvent(
-        id: 'ev_3',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: monAfternoon,
-        eventTime: monAfternoon.add(const Duration(minutes: 12)),
-        containerId: 2,
-        timeSlot: 'Afternoon',
-        status: MedicationStatus.medicationEventRecorded,
-        source: 'Mobile',
-        deviceConfirmed: false,
-      ),
-    );
-
-    // Day 2: Tuesday - Paracetamol Morning
-    final tueMorning = monMorning.add(const Duration(days: 1));
-    _events.add(
-      MedicationEvent(
-        id: 'ev_4',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: tueMorning,
-        eventTime: tueMorning.add(const Duration(minutes: 4)),
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.medicationEventRecorded,
-        source: 'IoT Device',
-        weightBefore: 14.2,
-        weightAfter: 13.7,
-        weightChange: -0.5,
-        deviceConfirmed: true,
-      ),
-    );
-
-    // Day 2: Tuesday - Afternoon Unconfirmed
-    final tueAfternoon = monAfternoon.add(const Duration(days: 1));
-    _events.add(
-      MedicationEvent(
-        id: 'ev_5',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: tueAfternoon,
-        eventTime: null,
-        containerId: 2,
-        timeSlot: 'Afternoon',
-        status: MedicationStatus.unconfirmed,
-        source: 'System',
-        deviceConfirmed: false,
-      ),
-    );
-
-    // Day 3: Wednesday - Morning
-    final wedMorning = monMorning.add(const Duration(days: 2));
-    _events.add(
-      MedicationEvent(
-        id: 'ev_6',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: wedMorning,
-        eventTime: wedMorning.add(const Duration(minutes: 2)),
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.medicationEventRecorded,
-        source: 'IoT Device',
-        weightBefore: 13.7,
-        weightAfter: 13.2,
-        weightChange: -0.5,
-        deviceConfirmed: true,
-      ),
-    );
-
-    // Day 4: Thursday - Morning (Container 1) & Evening (Container 3)
-    final thuMorning = monMorning.add(const Duration(days: 3));
-    final thuEvening = DateTime(monday.year, monday.month, monday.day + 3, 20, 0);
-    _events.add(
-      MedicationEvent(
-        id: 'ev_7',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: thuMorning,
-        eventTime: thuMorning.add(const Duration(minutes: 5)),
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.medicationEventRecorded,
-        source: 'IoT Device',
-        weightBefore: 13.2,
-        weightAfter: 12.7,
-        weightChange: -0.5,
-        deviceConfirmed: true,
-      ),
-    );
-    _events.add(
-      MedicationEvent(
-        id: 'ev_8',
-        medicineId: 'med_3',
-        medicineName: 'Metformin',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: thuEvening,
-        eventTime: null,
-        containerId: 3,
-        timeSlot: 'Evening',
-        status: MedicationStatus.scheduled,
-        source: 'System',
-        deviceConfirmed: false,
-      ),
-    );
-
-    // Day 5: Friday - Morning (Container 1) & Night (Container 4)
-    final friMorning = monMorning.add(const Duration(days: 4));
-    final friNight = DateTime(monday.year, monday.month, monday.day + 4, 22, 0);
-    _events.add(
-      MedicationEvent(
-        id: 'ev_9',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: friMorning,
-        eventTime: friMorning.add(const Duration(minutes: 3)),
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.medicationEventRecorded,
-        source: 'IoT Device',
-        weightBefore: 12.7,
-        weightAfter: 12.2,
-        weightChange: -0.5,
-        deviceConfirmed: true,
-      ),
-    );
-    _events.add(
-      MedicationEvent(
-        id: 'ev_10',
-        medicineId: 'med_4',
-        medicineName: 'Atorvastatin',
-        medicineStrength: '20 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: friNight,
-        eventTime: null,
-        containerId: 4,
-        timeSlot: 'Night',
-        status: MedicationStatus.scheduled,
-        source: 'System',
-        deviceConfirmed: false,
-      ),
-    );
-
-    // Day 6: Saturday - Morning (Container 1) & Afternoon (Container 2)
-    final satMorning = monMorning.add(const Duration(days: 5));
-    final satAfternoon = DateTime(monday.year, monday.month, monday.day + 5, 13, 0);
-    _events.add(
-      MedicationEvent(
-        id: 'ev_11',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: satMorning,
-        eventTime: null,
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.scheduled,
-        source: 'System',
-        deviceConfirmed: false,
-      ),
-    );
-    _events.add(
-      MedicationEvent(
-        id: 'ev_12',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: satAfternoon,
-        eventTime: null,
-        containerId: 2,
-        timeSlot: 'Afternoon',
-        status: MedicationStatus.scheduled,
-        source: 'System',
-        deviceConfirmed: false,
-      ),
-    );
-
-    // Day 7: Sunday - Morning (Container 1) & Night (Container 4)
-    final sunMorning = monMorning.add(const Duration(days: 6));
-    final sunNight = DateTime(monday.year, monday.month, monday.day + 6, 22, 0);
-    _events.add(
-      MedicationEvent(
-        id: 'ev_13',
-        medicineId: 'med_1',
-        medicineName: 'Paracetamol',
-        medicineStrength: '500 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: sunMorning,
-        eventTime: null,
-        containerId: 1,
-        timeSlot: 'Morning',
-        status: MedicationStatus.scheduled,
-        source: 'System',
-        deviceConfirmed: false,
-      ),
-    );
-    _events.add(
-      MedicationEvent(
-        id: 'ev_14',
-        medicineId: 'med_4',
-        medicineName: 'Atorvastatin',
-        medicineStrength: '20 mg',
-        medicineForm: 'Tablet',
-        dose: '1 Tablet',
-        scheduledTime: sunNight,
-        eventTime: null,
-        containerId: 4,
-        timeSlot: 'Night',
-        status: MedicationStatus.scheduled,
-        source: 'System',
-        deviceConfirmed: false,
-      ),
-    );
+  Future<void> init() async {
+    if (_persistenceService != null) {
+      final loaded = await _persistenceService.loadEvents();
+      if (loaded.isNotEmpty) {
+        _events.clear();
+        _events.addAll(loaded);
+      }
+    }
   }
 
   @override
@@ -409,41 +106,56 @@ class InMemoryEventRepository implements EventRepository {
     } else {
       _events.add(event);
     }
+    if (_persistenceService != null) {
+      await _persistenceService.saveEvents(_events);
+    }
   }
 
   @override
   Future<void> saveEvents(List<MedicationEvent> events) async {
     for (var ev in events) {
-      await saveEvent(ev);
+      final idx = _events.indexWhere((e) => e.id == ev.id);
+      if (idx != -1) {
+        _events[idx] = ev;
+      } else {
+        _events.add(ev);
+      }
+    }
+    if (_persistenceService != null) {
+      await _persistenceService.saveEvents(_events);
     }
   }
 
   @override
   Future<void> clearAllEvents() async {
     _events.clear();
+    if (_persistenceService != null) {
+      await _persistenceService.saveEvents(_events);
+    }
   }
 }
 
 class InMemoryCaretakerRepository implements CaretakerRepository {
   final List<Caretaker> _caretakers = [];
+  final LocalPersistenceService? _persistenceService;
 
-  InMemoryCaretakerRepository() {
-    _caretakers.add(
-      Caretaker(
-        id: 'caretaker_1',
-        name: 'Sarah Connor',
-        relationship: 'Spouse',
-        phone: '+1 555 9876',
-        email: 'sarah.c@medicare.net',
-        notificationPreferences: {
-          'missed_medication': true,
-          'low_medicine_level': true,
-          'device_offline': true,
-          'medication_recorded': false, // Disabled by default per master requirements
-        },
-        missedThreshold: 1,
-      ),
-    );
+  InMemoryCaretakerRepository({
+    LocalPersistenceService? persistenceService,
+    List<Caretaker>? initialCaretakers,
+  }) : _persistenceService = persistenceService {
+    if (initialCaretakers != null && initialCaretakers.isNotEmpty) {
+      _caretakers.addAll(initialCaretakers);
+    }
+  }
+
+  Future<void> init() async {
+    if (_persistenceService != null) {
+      final loaded = await _persistenceService.loadCaretakers();
+      if (loaded.isNotEmpty) {
+        _caretakers.clear();
+        _caretakers.addAll(loaded);
+      }
+    }
   }
 
   @override
@@ -459,10 +171,148 @@ class InMemoryCaretakerRepository implements CaretakerRepository {
     } else {
       _caretakers.add(caretaker);
     }
+    if (_persistenceService != null) {
+      await _persistenceService.saveCaretakers(_caretakers);
+    }
   }
 
   @override
   Future<void> deleteCaretaker(String id) async {
     _caretakers.removeWhere((c) => c.id == id);
+    if (_persistenceService != null) {
+      await _persistenceService.saveCaretakers(_caretakers);
+    }
+  }
+}
+
+/// Test fixtures for automated test suites.
+/// Isolated from normal application startup.
+class TestFixtures {
+  static List<Medicine> sampleMedicines() {
+    final now = DateTime.now();
+    return [
+      Medicine(
+        id: 'med_test_1',
+        name: 'Test Medicine A',
+        strength: '500 mg',
+        form: 'Tablet',
+        dose: '1 Tablet',
+        containerId: 1,
+        timeSlot: 'Morning',
+        frequency: 'Three times daily',
+        reminderTimes: ['08:00', '13:00', '20:00'],
+        startDate: now.subtract(const Duration(days: 3)),
+        endDate: now.add(const Duration(days: 14)),
+        foodInstruction: 'After food',
+        notes: 'Test notes',
+        active: true,
+      ),
+      Medicine(
+        id: 'med_test_2',
+        name: 'Test Medicine B',
+        strength: '1000 IU',
+        form: 'Capsule',
+        dose: '1 Capsule',
+        containerId: 1,
+        timeSlot: 'Morning',
+        frequency: 'Once daily',
+        reminderTimes: ['08:00'],
+        startDate: now.subtract(const Duration(days: 10)),
+        endDate: now.add(const Duration(days: 20)),
+        foodInstruction: 'With food',
+        notes: 'Test notes',
+        active: true,
+      ),
+      Medicine(
+        id: 'med_test_3',
+        name: 'Test Medicine C',
+        strength: '500 mg',
+        form: 'Tablet',
+        dose: '1 Tablet',
+        containerId: 3,
+        timeSlot: 'Evening',
+        frequency: 'Once daily',
+        reminderTimes: ['20:00'],
+        startDate: now.subtract(const Duration(days: 5)),
+        endDate: now.add(const Duration(days: 30)),
+        foodInstruction: 'With food',
+        notes: 'Test notes',
+        active: true,
+      ),
+    ];
+  }
+
+  static List<MedicationEvent> sampleEvents() {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    final List<MedicationEvent> events = [];
+
+    // Cover all 7 days of the week across the 4 containers
+    for (int day = 0; day < 7; day++) {
+      final dayDate = monday.add(Duration(days: day));
+      final containerId = (day % 4) + 1;
+      final timeSlot = ['Morning', 'Afternoon', 'Evening', 'Night'][containerId - 1];
+      final scheduledTime = DateTime(dayDate.year, dayDate.month, dayDate.day, 8 + (containerId * 3), 0);
+
+      events.add(
+        MedicationEvent(
+          id: 'test_ev_$day',
+          medicineId: 'med_test_1',
+          medicineName: 'Test Medicine A',
+          medicineStrength: '500 mg',
+          medicineForm: 'Tablet',
+          dose: '1 Tablet',
+          scheduledTime: scheduledTime,
+          eventTime: day < 3 ? scheduledTime.add(const Duration(minutes: 5)) : null,
+          containerId: containerId,
+          timeSlot: timeSlot,
+          status: day < 3 ? MedicationStatus.medicationEventRecorded : MedicationStatus.scheduled,
+          source: day < 3 ? 'Manual' : 'System',
+          deviceConfirmed: false,
+        ),
+      );
+
+      // Add a Container 1 event on multiple days to test container reuse across days
+      if (containerId != 1) {
+        final c1Time = DateTime(dayDate.year, dayDate.month, dayDate.day, 8, 0);
+        events.add(
+          MedicationEvent(
+            id: 'test_c1_ev_$day',
+            medicineId: 'med_test_2',
+            medicineName: 'Test Medicine B',
+            medicineStrength: '1000 IU',
+            medicineForm: 'Capsule',
+            dose: '1 Capsule',
+            scheduledTime: c1Time,
+            eventTime: null,
+            containerId: 1,
+            timeSlot: 'Morning',
+            status: MedicationStatus.scheduled,
+            source: 'System',
+            deviceConfirmed: false,
+          ),
+        );
+      }
+    }
+    return events;
+  }
+
+  static List<Caretaker> sampleCaretakers() {
+    return [
+      Caretaker(
+        id: 'test_caretaker_1',
+        name: 'Test Caretaker',
+        relationship: 'Spouse',
+        phone: '+1 555 9876',
+        email: 'caretaker@test.net',
+        notificationPreferences: {
+          'missed_medication': true,
+          'low_medicine_level': true,
+          'device_offline': true,
+          'medication_recorded': false,
+        },
+        missedThreshold: 1,
+      ),
+    ];
   }
 }

@@ -7,7 +7,7 @@
 [![Dart](https://img.shields.io/badge/Dart-3.0+-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Analysis](https://img.shields.io/badge/flutter%20analyze-0%20issues-brightgreen.svg)]()
-[![Tests](https://img.shields.io/badge/flutter%20test-7%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/flutter%20test-28%20passed-brightgreen.svg)]()
 
 ---
 
@@ -16,6 +16,10 @@
 - [Overview](#overview)
 - [Physical Hardware Architecture (4 Reusable Containers)](#physical-hardware-architecture-4-reusable-containers)
 - [Medical Safety & Terminology Safeguards](#medical-safety--terminology-safeguards)
+- [Zero Demo Data & Genuine Empty States](#zero-demo-data--genuine-empty-states)
+- [Persistent Local Storage](#persistent-local-storage)
+- [Hardware & Simulation Mode Isolation](#hardware--simulation-mode-isolation)
+- [Cross-Platform Adaptability](#cross-platform-adaptability)
 - [Key Features](#key-features)
 - [Design System & Accessibility](#design-system--accessibility)
 - [Project Directory Structure](#project-directory-structure)
@@ -75,13 +79,53 @@ MediPill Monitor strictly maintains clinical safety boundaries by reporting **ob
 
 ---
 
+## 🧼 Zero Demo Data & Genuine Empty States
+
+MediPill Monitor does not rely on fabricated or hardcoded demonstration data in normal application usage:
+- **Clean Startup:** The application initializes with clean empty states across all screens (Home, Weekly Plan, Medicines, History, Caretakers, and Doctor Analytics).
+- **No Fabricated Numbers:** Percentages, recording ratios, and load-cell weights reflect strictly genuine user activities. No hardcoded statistics (e.g. `18 / 21`, `86%`, `High Recording Rate`) are displayed.
+- **Dynamic 7-Day Plan Generation:** When real medications are created by the user, the application dynamically schedules doses across the Monday–Sunday weekly matrix across the 4 physical container slots.
+- **Isolated Test Fixtures:** Sample datasets are strictly confined to `TestFixtures` in `lib/data/repositories/repositories.dart` for automated testing.
+
+---
+
+## 💾 Persistent Local Storage
+
+The application leverages **`shared_preferences`** through a modular service layer ([`LocalPersistenceService`](lib/services/storage/local_persistence_service.dart)):
+- **User Profiles & Accounts:** Active session and registered user credentials persist across app restarts.
+- **Medications & Schedules:** Created medicines and dosage instructions are preserved.
+- **Medication Events & Audit History:** Recorded, missed, or unconfirmed dose events are stored in local JSON format.
+- **Caretaker Configurations:** Notification threshold preferences and contact rosters persist.
+- **Simulation Mode Flag:** Developer simulation preferences are remembered.
+
+---
+
+## 🔌 Hardware & Simulation Mode Isolation
+
+To uphold medical safety and avoid misleading users:
+- **Disconnected by Default:** The `MockDeviceService` initializes in a completely disconnected state (`isConnected = false`, `isSimulated = false`). Default telemetry displays `"Device not connected"` / `"No physical device connected"` with `0.0 g` container weights and `"Empty"` status.
+- **Explicit Testing Toggle:** Developer simulation mode can only be enabled via an explicit switch in the ESP32 Device Settings screen.
+- **Unambiguous Banner:** When simulation mode is activated, the application prominently banners **`"SIMULATED DEVICE — TESTING"`** across telemetry cards and never masquerades as a live physical IoT device.
+
+---
+
+## 📱 Cross-Platform Adaptability
+
+MediPill Monitor is engineered for responsive execution across **Mobile**, **Tablet**, **Desktop**, and **Web**:
+- **Mobile (< 768px):** Clean bottom navigation bar with 5 primary destinations (`Home`, `Plan`, `Medicines`, `History`, `Settings`).
+- **Desktop & Web (>= 768px):** Responsive left-anchored `NavigationRail` with max-width content constraints (800px–1000px) preventing stretched cards on wide displays.
+- **Camera Scanning Fallback:** On desktop and web environments where mobile camera hardware is unavailable, tapping scan triggers an informative fallback modal:
+  > *"Camera scanning is unavailable on this platform. You can upload an image or enter the medicine manually."*
+
+---
+
 ## 🚀 Key Features
 
 ### 1. Home Dashboard
-- **Medication Events Recorded Card:** Live ratio of scheduled events recorded with qualitative completion badge.
-- **Next Upcoming Medication:** Prominent highlight card indicating medicine name, dosage, time, and assigned container number (1–4).
-- **4-Container Quick Grid:** Instant overview of Containers 1 to 4 with assigned time slots, current weights, door open/closed status, and inventory level pills.
-- **Simulated IoT Connection Banner:** Live gateway connectivity toggle.
+- **Medication Events Recorded Card:** Live ratio of scheduled events recorded derived from actual logs, or clean "No medication events recorded yet" empty state.
+- **Next Upcoming Medication:** Prominent highlight card indicating the next due medicine, time, and assigned container number (1–4).
+- **4-Container Quick Grid:** Instant status of Containers 1 to 4 with assigned time slots, current weights, door open/closed status, and inventory level pills.
+- **Hardware Connection Banner:** Clear indication of real ESP32 connectivity, simulation testing mode, or disconnected status.
 
 ### 2. Weekly Medication Plan (Mon–Sun)
 - Interactive **7-Day $\times$ 4-Container** schedule matrix.
@@ -90,7 +134,7 @@ MediPill Monitor strictly maintains clinical safety boundaries by reporting **ob
 - Tap-to-inspect detail bottom sheet displaying scheduled day, time, container ID, measured weight delta ($\Delta g$), and quick "Mark Recorded" or "Mark Missed" actions.
 
 ### 3. Medicines Directory & OCR Scanning
-- Directory displaying active and inactive medications with container assignment indicators.
+- Directory displaying active medications with container assignment indicators or a clean empty state with an [Add Medicine] action.
 - **Equal-Path Add Medicine Flow:** Choose between `Scan Medicine Image` (OCR) or `Enter Manually`.
 - Multi-medicine container assignment warning if multiple medicines share the same physical container slot.
 
@@ -101,9 +145,9 @@ MediPill Monitor strictly maintains clinical safety boundaries by reporting **ob
 - Logs load-cell weight delta $\Delta g$ and door transition timestamps.
 
 ### 5. Doctor Analytics Dashboard
-- Patient monitoring summary with total scheduled events, recorded events, unconfirmed events, and missed events.
-- **Medication Event Recording Trend (Mon–Sun):** Day-by-day table showing scheduled vs recorded event counts across the week.
-- **4-Container Hardware Telemetry Logs:** Reed switch cycle counts, load-cell weight deltas, and ESP32 gateway uptime.
+- Patient monitoring summary calculated dynamically from actual recorded, unconfirmed, and missed events.
+- **Medication Event Recording Trend (Mon–Sun):** Dynamic day-by-day table showing scheduled vs recorded event counts across the week.
+- **4-Container Hardware Telemetry Logs:** Reed switch cycle counts and load-cell weight readings when hardware/simulator is linked.
 
 ### 6. Caretaker Oversight & Alert Escalation
 - Caretaker roster with contact info and relationship badges.
@@ -116,13 +160,14 @@ MediPill Monitor strictly maintains clinical safety boundaries by reporting **ob
 ### 7. ESP32 Device Screen & Interactive Simulator
 - Live telemetry for Containers 1 to 4.
 - **Developer Simulation Controls:**
+  - Toggle developer simulation mode on/off.
   - Toggle door reed switches open/closed for Containers 1, 2, 3, or 4.
   - Simulate weight reduction / dispense events (-0.5 g).
   - Toggle mock ESP32 WiFi gateway connection.
 
-### 8. Adaptive Navigation
-- **Mobile Viewports (< 768px):** Fixed 5-tab `BottomNavigationBar` (`Home`, `Plan`, `Medicines`, `History`, `Settings`).
-- **Tablet / Desktop Viewports ($\ge$ 768px):** Left-anchored persistent `NavigationRail`.
+### 8. Streamlined Settings Screen
+- Completely clean settings experience with the legacy Appearance section removed (no dead buttons or broken cards).
+- Provides User Profile overview, direct links to Caretaker & Alerts configuration, Doctor Analytics, ESP32 Device Settings, and Sign Out.
 
 ---
 
@@ -158,7 +203,7 @@ CHITTI/
 │   │   ├── models/
 │   │   │   └── models.dart                # User, Medicine, Event, Caretaker, PhysicalContainer models
 │   │   └── repositories/
-│   │       └── repositories.dart          # In-memory repositories seeded with 4-container 7-day data
+│   │       └── repositories.dart          # In-memory repositories with persistence hooks & TestFixtures
 │   ├── features/
 │   │   ├── auth/
 │   │   │   └── auth_screens.dart          # Animated Splash, Welcome, Login, and Registration
@@ -175,23 +220,25 @@ CHITTI/
 │   │   ├── medicines/
 │   │   │   └── medicines_screen.dart      # Directory, manual add, & OCR draft review/edit form
 │   │   ├── settings/
-│   │   │   └── settings_screen.dart       # User profile, appearance, links to Caretaker/Doctor/Device
+│   │   │   └── settings_screen.dart       # User profile, links to Caretaker/Doctor/Device, Sign Out
 │   │   └── weekly_plan/
 │   │       └── weekly_plan_screen.dart    # 7-day Monday–Sunday matrix across 4 container slots
 │   ├── services/
 │   │   ├── auth/
 │   │   │   └── auth_service.dart          # Authentication service with reactive authStateChanges
 │   │   ├── device/
-│   │   │   └── device_service.dart        # MockDeviceService simulating 4 containers, doors, & scales
+│   │   │   └── device_service.dart        # MockDeviceService (disconnected by default, simulation mode)
 │   │   ├── medicine_image/
 │   │   │   └── medicine_image_service.dart# OCR image parsing simulator returning MedicineDraft
-│   │   └── notifications/
-│   │       └── notification_service.dart  # Notification interface with snoozing & threshold alerts
+│   │   ├── notifications/
+│   │   │   └── notification_service.dart  # Notification interface with snoozing & threshold alerts
+│   │   └── storage/
+│   │       └── local_persistence_service.dart # SharedPreferences JSON local persistence engine
 │   ├── widgets/
 │   │   └── navigation_shell.dart          # Adaptive 5-tab shell (BottomBar on mobile, NavigationRail on wide screens)
 │   └── main.dart                          # App bootstrap, AppStateProvider, MediPillApp root
 ├── test/
-│   └── widget_test.dart                   # Comprehensive unit, architectural, safety, & widget tests
+│   └── widget_test.dart                   # Full 28-test suite (Architecture, Safety, Persistence, Adaptability)
 ├── pubspec.yaml                           # Flutter dependencies & assets configuration
 ├── analysis_options.yaml                  # Flutter recommended lints configuration
 └── README.md                              # This documentation
@@ -243,14 +290,34 @@ CHITTI/
 
 ## 🧪 Testing & Quality Verification
 
-The test suite in [`test/widget_test.dart`](test/widget_test.dart) validates architectural and safety rules:
-1. **Hardware Constraint:** Verifies device contains exactly 4 physical containers (1 to 4) and rejects container numbers 5, 6, and 7.
-2. **Time Slot Mapping:** Confirms Containers 1–4 map to Morning, Afternoon, Evening, and Night slots.
-3. **Medical Safety:** Verifies `MedicationStatus` adheres strictly to recorded/unconfirmed/missed event tracking without ingestion claims.
-4. **7-Day Coverage:** Validates weekly schedule covers all 7 days of the week (Monday through Sunday).
-5. **Container Reusability:** Proves the same physical container (Container 1) is scheduled across multiple distinct days of the week.
-6. **Caretaker Terminology:** Asserts alerts use observable event language (`missed_medication`, `medication_recorded`).
-7. **App Startup Smoke Test:** Tests `MediPillApp` root startup, splash animation, and smooth transition to the welcome screen.
+MediPill Monitor enforces a comprehensive automated test suite with **28 tests passing (100% success rate)** across 6 core testing categories in [`test/widget_test.dart`](test/widget_test.dart):
+
+1. **Hardware & Container Constraints:**
+   - Verifies device contains exactly 4 physical containers (1 to 4) and rejects invalid container IDs.
+   - Confirms Containers 1–4 map to Morning, Afternoon, Evening, and Night time slots.
+2. **Medical Safety & Observable Terminology:**
+   - Verifies `MedicationStatus` adheres strictly to recorded/unconfirmed/missed event tracking without unsupported ingestion claims.
+   - Asserts caretaker alert preferences use observable event language (`missed_medication`, `medication_recorded`).
+3. **Weekly Schedule Matrix (Monday–Sunday):**
+   - Validates weekly schedule coverage across all 7 calendar days.
+   - Confirms container reusability: the same physical container (Container 1) is reused across multiple days of the week.
+4. **Authentication & Session Flows:**
+   - Validates credential verification, error handling, password masking toggle, account sign-up, and session teardown on logout.
+5. **Clean Startup, Zero Demo Data & Disconnected Device:**
+   - Asserts unseeded startup contains zero medicines, events, or caretakers.
+   - Verifies device starts disconnected (`"Device not connected"`, `0.0 g` weights) by default.
+   - Tests developer simulation isolation: activates `"SIMULATED DEVICE — TESTING"` label only when explicitly enabled.
+   - Verifies Home screen renders genuine empty states without fabricated metrics (`18 / 21`, `86%`, `High Recording Rate`).
+6. **Appearance Removal from Settings:**
+   - Asserts Settings screen has no Appearance section, theme selector, dark/light toggle, or dead buttons.
+   - Confirms valid system settings (Profile, Caretaker, Doctor, Device, Sign Out) remain fully accessible.
+7. **Real Data Addition & Dynamic Schedule Calculation:**
+   - Verifies adding a new medicine dynamically populates Monday–Sunday dosage events assigned to the corresponding container slot.
+8. **Local Persistence Across Simulated Restarts:**
+   - Verifies `LocalPersistenceService` persists and restores user profile, medicines, caretakers, and simulation mode using mock `SharedPreferences`.
+9. **Platform Adaptability & UI Fallbacks:**
+   - Tests `AdaptiveNavigationShell` responsive breakpoint: renders `BottomNavigationBar` on mobile (`< 768px`) and `NavigationRail` on desktop (`>= 768px`).
+   - Verifies desktop/web camera scanning fallback dialog displays proper explanatory text with direct manual entry options.
 
 ---
 

@@ -15,156 +15,225 @@ class DoctorScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.findAncestorStateOfType<AppStateProviderState>()?.widget.state ?? 
-                  _StaticState.demoState;
+                  _StaticState.cleanState;
 
     return ListenableBuilder(
       listenable: state,
       builder: (context, child) {
-        final patientName = state.currentUser?.name ?? 'John Doe';
+        final patientName = state.currentUser?.name ?? 'Patient';
         final events = state.events;
-        
-        // Safety terminology metrics
+
+        // Safety terminology metrics from real application data
         final int totalScheduled = events.length;
         final int recorded = events.where((e) => e.status == MedicationStatus.medicationEventRecorded).length;
         final int unconfirmed = events.where((e) => e.status == MedicationStatus.unconfirmed).length;
         final int missed = events.where((e) => e.status == MedicationStatus.missed).length;
         
-        // Device metrics
-        final int loadCellTriggers = events.where((e) => e.deviceConfirmed == true && e.weightChange != null).length;
         final percentage = totalScheduled == 0 ? 0 : ((recorded / totalScheduled) * 100).round();
+
+        // Calculate real trend per day for current week (Monday to Sunday)
+        final now = DateTime.now();
+        final monday = now.subtract(Duration(days: now.weekday - 1));
+        final weekStart = DateTime(monday.year, monday.month, monday.day);
+        final weekEnd = weekStart.add(const Duration(days: 7));
+        final weekEvents = events.where((e) => 
+            e.scheduledTime.isAfter(weekStart.subtract(const Duration(seconds: 1))) && 
+            e.scheduledTime.isBefore(weekEnd)
+        ).toList();
+
+        final List<int> scheduledPerDay = List.generate(7, (i) {
+          final day = i + 1;
+          return weekEvents.where((e) => e.scheduledTime.weekday == day).length;
+        });
+        final List<int> recordedPerDay = List.generate(7, (i) {
+          final day = i + 1;
+          return weekEvents.where((e) => e.scheduledTime.weekday == day && e.status == MedicationStatus.medicationEventRecorded).length;
+        });
+        final List<int> unconfirmedPerDay = List.generate(7, (i) {
+          final day = i + 1;
+          return weekEvents.where((e) => e.scheduledTime.weekday == day && e.status == MedicationStatus.unconfirmed).length;
+        });
+
+        // Real observable device metrics
+        final int loadCellTriggers = events.where((e) => e.deviceConfirmed == true && e.weightChange != null).length;
+        final int deviceEventsLogged = events.where((e) => e.source == 'IoT Device' || e.source == 'Simulated Device').length;
+
+        final isHardwareConnected = state.deviceStatus?.isConnected ?? false;
+        final isSimulated = state.deviceService.isSimulated;
 
         return Scaffold(
           appBar: AppBar(
             title: const Text('Doctor Analytics Dashboard'),
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Medical Safety Disclaimer
-                Container(
-                  margin: const EdgeInsets.only(bottom: 20),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.statusCompletedBg,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.statusCompleted.withValues(alpha: 0.3)),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.health_and_safety_outlined, color: AppColors.statusCompleted, size: 24),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Clinical Notice: Displays Device-Detected Medication Activity patterns across the 4 physical containers. Ingestion cannot be medically confirmed by sensors alone. Routine daily reminders are disabled for doctor profiles.',
-                          style: TextStyle(color: AppColors.statusCompletedText, fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
+          body: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: events.isEmpty
+                  ? _buildEmptyState()
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Medical Safety Disclaimer
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 20),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppColors.statusCompletedBg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.statusCompleted.withValues(alpha: 0.3)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.health_and_safety_outlined, color: AppColors.statusCompleted, size: 24),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'Clinical Notice: Displays Device-Detected Medication Activity patterns across the 4 physical containers. Ingestion cannot be medically confirmed by sensors alone. Routine daily reminders are disabled for doctor profiles.',
+                                    style: TextStyle(color: AppColors.statusCompletedText, fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Patient overview
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'PATIENT MONITORING SUMMARY',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    patientName,
+                                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                  ),
+                                  const Divider(height: 24, color: AppColors.border),
+                                  
+                                  Row(
+                                    children: [
+                                      _buildStatTile('Scheduled Events', '$totalScheduled', Icons.calendar_today_outlined),
+                                      _buildStatTile('Recorded Events', '$recorded', Icons.check_circle_outline),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      _buildStatTile('Unconfirmed Events', '$unconfirmed', Icons.help_outline),
+                                      _buildStatTile('Missed Events', '$missed', Icons.cancel_outlined),
+                                    ],
+                                  ),
+                                  const Divider(height: 24, color: AppColors.border),
+                                  
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Recorded vs Scheduled Events:',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      ),
+                                      Text(
+                                        '$recorded / $totalScheduled ($percentage%)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.brandStart),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Weekly Matrix trends calculated from real stored events
+                          const Text(
+                            'MEDICATION EVENT RECORDING TREND (MON–SUN)',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
+                          ),
+                          const SizedBox(height: 8),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                children: [
+                                  _buildTrendHeaderRow(),
+                                  const Divider(color: AppColors.border),
+                                  _buildTrendRow('Scheduled', scheduledPerDay),
+                                  _buildTrendRow('Recorded', recordedPerDay),
+                                  _buildTrendRow('Unconfirmed', unconfirmedPerDay),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Real Observable Device Telemetry
+                          const Text(
+                            '4-CONTAINER HARDWARE TELEMETRY LOGS',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
+                          ),
+                          const SizedBox(height: 8),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildTelemetryRow(
+                                    'Hardware Connection State', 
+                                    isHardwareConnected 
+                                        ? 'Connected' 
+                                        : (isSimulated ? 'Simulated Device (Testing)' : 'Device not connected'),
+                                  ),
+                                  _buildTelemetryRow('HX711 Weight Deltas Confirmed', '$loadCellTriggers triggers'),
+                                  _buildTelemetryRow('Physical Door Sensor Events', '$deviceEventsLogged events recorded'),
+                                  _buildTelemetryRow(
+                                    'Dispenser Physical Architecture', 
+                                    '4 Physical Containers (Reused Mon–Sun)',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-
-                // Patient overview
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'PATIENT MONITORING SUMMARY',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          patientName,
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                        const Divider(height: 24, color: AppColors.border),
-                        
-                        Row(
-                          children: [
-                            _buildStatTile('Scheduled Events', '$totalScheduled', Icons.calendar_today_outlined),
-                            _buildStatTile('Recorded Events', '$recorded', Icons.check_circle_outline),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            _buildStatTile('Unconfirmed Events', '$unconfirmed', Icons.help_outline),
-                            _buildStatTile('Missed Events', '$missed', Icons.cancel_outlined),
-                          ],
-                        ),
-                        const Divider(height: 24, color: AppColors.border),
-                        
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              'Recorded vs Scheduled Events:',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            ),
-                            Text(
-                              '$recorded / $totalScheduled ($percentage%)',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.brandStart),
-                            ),
-                          ],
-                        ),
-                      ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Weekly Matrix trends
-                const Text(
-                  'MEDICATION EVENT RECORDING TREND (MON–SUN)',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildTrendHeaderRow(),
-                        const Divider(color: AppColors.border),
-                        _buildTrendRow('Scheduled', [3, 3, 3, 3, 3, 3, 3]),
-                        _buildTrendRow('Recorded', [3, 2, 3, 3, 2, 3, 2]),
-                        _buildTrendRow('Unconfirmed', [0, 1, 0, 0, 1, 0, 1]),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Device Load Cells & Switches Telemetry
-                const Text(
-                  '4-CONTAINER HARDWARE TELEMETRY LOGS',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildTelemetryRow('4 x HX711 Weight Deltas Recorded', '$loadCellTriggers triggers'),
-                        _buildTelemetryRow('4 x Reed Door Sensor Openings', '${recorded + unconfirmed} openings'),
-                        _buildTelemetryRow('ESP32 Telemetry Uptime', '98.5%'),
-                        _buildTelemetryRow('DS3231 RTC Module Offset', '+0.08s'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.analytics_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            const Text(
+              'Not enough medication-event data yet.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Analytics and recording trends across the 4 physical containers will appear after medication events are recorded.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -231,8 +300,8 @@ class DoctorScreen extends StatelessWidget {
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: label == 'Recorded' 
-                      ? AppColors.statusCompleted 
-                      : (label == 'Unconfirmed' && v > 0 ? AppColors.statusMissed : AppColors.textPrimary),
+                      ? (v > 0 ? AppColors.statusCompleted : AppColors.textSecondary)
+                      : (label == 'Unconfirmed' && v > 0 ? AppColors.statusMissed : AppColors.textSecondary),
                 ),
               ),
             ),
@@ -258,8 +327,8 @@ class DoctorScreen extends StatelessWidget {
 
 // Fallback preview
 class _StaticState {
-  static final demoState = AppState(
-    authService: MockAuthService(),
+  static final cleanState = AppState(
+    authService: MockAuthService(seedTestAccount: false),
     notificationService: MockNotificationService(),
     imageService: MockMedicineImageService(),
     deviceService: MockDeviceService(),

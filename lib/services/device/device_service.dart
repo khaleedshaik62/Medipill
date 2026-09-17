@@ -8,7 +8,10 @@ abstract class DeviceService {
   Stream<DeviceEvent> get deviceEvents;
   Stream<List<PhysicalContainer>> get containerStateChanges;
 
-  // Simulator APIs for testing & demo
+  bool get isSimulated;
+  void setSimulationMode(bool enabled);
+
+  // Simulator APIs for testing & developer mode
   void simulateEvent(DeviceEvent event, {int? containerId, double? weightChange});
   List<PhysicalContainer> getContainers();
   void setDeviceConnected(bool connected);
@@ -18,17 +21,22 @@ class MockDeviceService implements DeviceService {
   final StreamController<DeviceEvent> _eventController = StreamController<DeviceEvent>.broadcast();
   final StreamController<List<PhysicalContainer>> _containerController = StreamController<List<PhysicalContainer>>.broadcast();
 
-  bool _isConnected = true;
-  bool _isWifiConnected = true;
+  bool _isConnected = false; // Physical ESP32 hardware connection
+  bool _isSimulated = false;  // Developer simulation mode
+  bool _isWifiConnected = false;
   List<PhysicalContainer> _containers = [];
 
-  MockDeviceService() {
-    // Populate EXACTLY the 4 physical containers
+  MockDeviceService({bool isSimulated = false}) : _isSimulated = isSimulated {
+    _initContainers();
+  }
+
+  void _initContainers() {
+    // Exactly the 4 physical containers, Morning, Afternoon, Evening, Night
     final slots = [
-      {'id': 1, 'name': 'Container 1', 'slot': 'Morning', 'weight': 14.5, 'status': 'Normal'},
-      {'id': 2, 'name': 'Container 2', 'slot': 'Afternoon', 'weight': 5.2, 'status': 'Low'},
-      {'id': 3, 'name': 'Container 3', 'slot': 'Evening', 'weight': 18.0, 'status': 'Normal'},
-      {'id': 4, 'name': 'Container 4', 'slot': 'Night', 'weight': 0.0, 'status': 'Empty'},
+      {'id': 1, 'name': 'Container 1', 'slot': 'Morning'},
+      {'id': 2, 'name': 'Container 2', 'slot': 'Afternoon'},
+      {'id': 3, 'name': 'Container 3', 'slot': 'Evening'},
+      {'id': 4, 'name': 'Container 4', 'slot': 'Night'},
     ];
 
     _containers = slots.map((s) {
@@ -38,35 +46,52 @@ class MockDeviceService implements DeviceService {
         name: s['name'] as String,
         timeSlot: s['slot'] as String,
         assignedMedicineNames: [],
-        currentWeight: s['weight'] as double,
-        previousWeight: s['weight'] as double,
-        inventoryStatus: s['status'] as String,
-        estimatedRemaining: s['status'] == 'Empty' ? 'None' : (s['status'] == 'Low' ? 'Low level' : 'Normal level'),
+        currentWeight: 0.0,
+        previousWeight: 0.0,
+        inventoryStatus: 'Empty',
+        estimatedRemaining: null,
         isOpen: false,
         sensorStatus: 'Normal',
-        lastEvent: 'System Initialized',
+        lastEvent: null,
       );
     }).toList();
   }
 
   @override
+  bool get isSimulated => _isSimulated;
+
+  @override
+  void setSimulationMode(bool enabled) {
+    _isSimulated = enabled;
+    if (enabled) {
+      _isWifiConnected = true;
+      // In simulation mode, give test container initial simulation weight for testing if desired
+      _eventController.add(DeviceEvent.deviceConnected);
+    } else {
+      _isWifiConnected = false;
+      _eventController.add(DeviceEvent.deviceDisconnected);
+    }
+    _containerController.add(_containers);
+  }
+
+  @override
   Future<DeviceStatus> getDeviceStatus() async {
+    final active = _isConnected || _isSimulated;
     return DeviceStatus(
       isConnected: _isConnected,
-      isWifiConnected: _isWifiConnected,
-      lastSync: DateTime.now().subtract(const Duration(minutes: 2)),
-      mechanismState: _isConnected ? MedicationContainerMechanismState.ready : MedicationContainerMechanismState.offline,
-      buzzerReady: _isConnected,
-      oledOnline: _isConnected,
-      reedSensorsNormal: _isConnected,
-      loadCellsConnected: _isConnected,
+      isSimulated: _isSimulated,
+      isWifiConnected: _isConnected || (_isSimulated && _isWifiConnected),
+      lastSync: DateTime.now(),
+      mechanismState: active ? MedicationContainerMechanismState.ready : MedicationContainerMechanismState.offline,
+      buzzerReady: active,
+      oledOnline: active,
+      reedSensorsNormal: active,
+      loadCellsConnected: active,
     );
   }
 
   @override
   Future<void> syncMedicationPlan(List<Medicine> medicines) async {
-    if (!_isConnected) return;
-    
     // Map active medicines to the 4 physical containers
     final newContainers = List<PhysicalContainer>.from(_containers);
     for (int i = 0; i < 4; i++) {
@@ -77,14 +102,20 @@ class MockDeviceService implements DeviceService {
           .toList();
 
       final currentWeight = newContainers[i].currentWeight;
-      final status = assigned.isEmpty 
-          ? 'Empty' 
-          : (currentWeight > 10.0 ? 'Normal' : (currentWeight > 0.0 ? 'Low' : 'Empty'));
+      String status;
+      if (assigned.isEmpty) {
+        status = 'Empty';
+      } else if (_isSimulated || _isConnected) {
+        status = currentWeight > 10.0 ? 'Normal' : (currentWeight > 0.0 ? 'Low' : 'Empty');
+      } else {
+        // Real mode without connected hardware
+        status = 'Configured';
+      }
 
       newContainers[i] = newContainers[i].copyWith(
         assignedMedicineNames: assigned,
         inventoryStatus: status,
-        estimatedRemaining: status == 'Empty' ? 'Empty' : (status == 'Low' ? 'Low' : 'Normal'),
+        estimatedRemaining: status == 'Empty' ? null : status,
       );
     }
     _containers = newContainers;
@@ -93,7 +124,7 @@ class MockDeviceService implements DeviceService {
 
   @override
   Future<void> triggerReminder(int containerId) async {
-    if (!_isConnected) return;
+    if (!_isConnected && !_isSimulated) return;
     simulateEvent(DeviceEvent.medicationEvent, containerId: containerId);
   }
 
@@ -115,10 +146,12 @@ class MockDeviceService implements DeviceService {
 
   @override
   void simulateEvent(DeviceEvent event, {int? containerId, double? weightChange}) {
+    if (!_isSimulated && !_isConnected) return;
+
     if (containerId != null && containerId >= 1 && containerId <= 4) {
       final index = containerId - 1;
       final container = _containers[index];
-      
+
       if (event == DeviceEvent.containerOpened) {
         _containers[index] = container.copyWith(
           isOpen: true,
@@ -141,7 +174,7 @@ class MockDeviceService implements DeviceService {
           previousWeight: container.currentWeight,
           currentWeight: newWeight,
           inventoryStatus: level,
-          estimatedRemaining: level == 'Empty' ? 'Empty' : (level == 'Low' ? 'Low' : 'Normal'),
+          estimatedRemaining: level,
           lastEvent: 'Weight Change: ${weightChange > 0 ? "+" : ""}${weightChange.toStringAsFixed(2)} g',
         );
       } else if (event == DeviceEvent.lowQuantity) {
@@ -151,7 +184,7 @@ class MockDeviceService implements DeviceService {
           lastEvent: 'Low Level Warning Detected',
         );
       }
-      
+
       _containerController.add(_containers);
     }
     _eventController.add(event);

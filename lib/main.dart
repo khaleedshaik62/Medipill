@@ -7,20 +7,22 @@ import 'services/auth/auth_service.dart';
 import 'services/device/device_service.dart';
 import 'services/medicine_image/medicine_image_service.dart';
 import 'services/notifications/notification_service.dart';
+import 'services/storage/local_persistence_service.dart';
 import 'widgets/navigation_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Instantiate dependencies
-  final authService = MockAuthService();
+  final persistenceService = LocalPersistenceService();
+  final authService = MockAuthService(persistenceService: persistenceService);
   final notificationService = MockNotificationService();
   final imageService = MockMedicineImageService();
   final deviceService = MockDeviceService();
 
-  final medicineRepository = InMemoryMedicineRepository();
-  final eventRepository = InMemoryEventRepository();
-  final caretakerRepository = InMemoryCaretakerRepository();
+  final medicineRepository = InMemoryMedicineRepository(persistenceService: persistenceService);
+  final eventRepository = InMemoryEventRepository(persistenceService: persistenceService);
+  final caretakerRepository = InMemoryCaretakerRepository(persistenceService: persistenceService);
 
   // Instantiate app state provider coordinating everything
   final appState = AppState(
@@ -31,6 +33,7 @@ void main() async {
     medicineRepository: medicineRepository,
     eventRepository: eventRepository,
     caretakerRepository: caretakerRepository,
+    persistenceService: persistenceService,
   );
 
   // Initialize notifications
