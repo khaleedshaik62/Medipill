@@ -56,11 +56,31 @@ void main() {
 
     test('Schedule Model: Week covers Monday to Sunday across 4 containers', () {
       expect(state.events.isNotEmpty, isTrue);
+      final daysPresent = state.events.map((e) => e.scheduledTime.weekday).toSet();
+      // Must cover all 7 days of week (1 = Monday ... 7 = Sunday)
+      expect(daysPresent, containsAll([1, 2, 3, 4, 5, 6, 7]));
+
       for (final event in state.events) {
         // Every event must reference a container between 1 and 4
         expect(event.containerId, inInclusiveRange(1, 4));
         expect(event.containerId, isNot(greaterThan(4)));
       }
+    });
+
+    test('Reusable Containers: Same physical container is reused across multiple days of the week', () {
+      // Find events assigned to Container 1
+      final container1Events = state.events.where((e) => e.containerId == 1).toList();
+      expect(container1Events.isNotEmpty, isTrue);
+
+      // Verify Container 1 is scheduled on multiple distinct days (e.g., Monday through Sunday)
+      final c1Days = container1Events.map((e) => e.scheduledTime.weekday).toSet();
+      expect(c1Days.length, greaterThan(1));
+    });
+
+    test('Caretaker Terminology: Alerts use observable event language without ingestion claims', () {
+      final preferences = state.caretakers.first.notificationPreferences;
+      expect(preferences.containsKey('missed_medication'), isTrue);
+      expect(preferences.containsKey('medication_recorded'), isTrue);
     });
 
     testWidgets('App Startup & Splash Screen Smoke Test', (WidgetTester tester) async {

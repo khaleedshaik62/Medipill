@@ -87,12 +87,12 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
                             const SizedBox(height: 8),
                             
                             _buildPreferenceRow(
-                              'Missed Medication Alert', 
+                              'Unconfirmed / Missed Medication Alert', 
                               caretaker.notificationPreferences['missed_medication'] ?? false,
                               (val) => _updatePreference(state, caretaker, 'missed_medication', val),
                             ),
                             _buildPreferenceRow(
-                              'Consecutive Missed Alerts (Threshold: ${caretaker.missedThreshold} events)', 
+                              'Consecutive Unconfirmed/Missed Alerts (Threshold: ${caretaker.missedThreshold} events)', 
                               (caretaker.notificationPreferences['missed_medication'] ?? false) && caretaker.missedThreshold > 1,
                               null, // Fixed indicator or change threshold
                             ),
@@ -107,7 +107,7 @@ class _CaretakerScreenState extends State<CaretakerScreen> {
                               (val) => _updatePreference(state, caretaker, 'device_offline', val),
                             ),
                             _buildPreferenceRow(
-                              'Normal Medication Ingestion Inferences (Disabled by default)', 
+                              'Routine Recorded Medication Events (Disabled by default)', 
                               caretaker.notificationPreferences['medication_recorded'] ?? false,
                               (val) => _updatePreference(state, caretaker, 'medication_recorded', val),
                             ),

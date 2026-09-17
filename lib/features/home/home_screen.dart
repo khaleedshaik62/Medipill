@@ -136,12 +136,12 @@ class HomeScreen extends StatelessWidget {
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     const Text(
-                                      'THIS WEEK',
+                                      'MEDICATION EVENTS RECORDED',
                                       style: TextStyle(
-                                        fontSize: 12,
+                                        fontSize: 11,
                                         fontWeight: FontWeight.bold,
                                         color: AppColors.textSecondary,
-                                        letterSpacing: 1.0,
+                                        letterSpacing: 0.8,
                                       ),
                                     ),
                                     if (percentage >= 80)
@@ -156,7 +156,7 @@ class HomeScreen extends StatelessWidget {
                                             Icon(Icons.workspace_premium, color: Colors.white, size: 14),
                                             SizedBox(width: 4),
                                             Text(
-                                              'High Completion',
+                                              'High Recording Rate',
                                               style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                                             ),
                                           ],
@@ -167,24 +167,35 @@ class HomeScreen extends StatelessWidget {
                                 const SizedBox(height: 12),
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
-                                      '${completedEvents.length} / ${pastEvents.length} medication events recorded',
+                                      '${completedEvents.length} / ${pastEvents.length}',
                                       style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.bold,
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
                                     Text(
                                       '$percentage%',
                                       style: const TextStyle(
-                                        fontSize: 28,
+                                        fontSize: 26,
                                         fontWeight: FontWeight.bold,
                                         color: AppColors.brandStart,
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '$percentage% of scheduled medication events recorded',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                                 ClipRRect(
@@ -198,7 +209,7 @@ class HomeScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 12),
                                 const Text(
-                                  'Medication event completion calculated from load cell & door sensors.',
+                                  'Calculated from observable device & application events (not clinical adherence).',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontStyle: FontStyle.italic,

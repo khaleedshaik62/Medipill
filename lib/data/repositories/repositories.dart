@@ -237,21 +237,159 @@ class InMemoryEventRepository implements EventRepository {
       ),
     );
 
-    // Today / Upcoming slots
-    final today = DateTime(now.year, now.month, now.day, 20, 0);
+    // Day 4: Thursday - Morning (Container 1) & Evening (Container 3)
+    final thuMorning = monMorning.add(const Duration(days: 3));
+    final thuEvening = DateTime(monday.year, monday.month, monday.day + 3, 20, 0);
     _events.add(
       MedicationEvent(
         id: 'ev_7',
+        medicineId: 'med_1',
+        medicineName: 'Paracetamol',
+        medicineStrength: '500 mg',
+        medicineForm: 'Tablet',
+        dose: '1 Tablet',
+        scheduledTime: thuMorning,
+        eventTime: thuMorning.add(const Duration(minutes: 5)),
+        containerId: 1,
+        timeSlot: 'Morning',
+        status: MedicationStatus.medicationEventRecorded,
+        source: 'IoT Device',
+        weightBefore: 13.2,
+        weightAfter: 12.7,
+        weightChange: -0.5,
+        deviceConfirmed: true,
+      ),
+    );
+    _events.add(
+      MedicationEvent(
+        id: 'ev_8',
         medicineId: 'med_3',
         medicineName: 'Metformin',
         medicineStrength: '500 mg',
         medicineForm: 'Tablet',
         dose: '1 Tablet',
-        scheduledTime: today,
+        scheduledTime: thuEvening,
         eventTime: null,
         containerId: 3,
         timeSlot: 'Evening',
-        status: now.hour >= 20 ? MedicationStatus.due : MedicationStatus.scheduled,
+        status: MedicationStatus.scheduled,
+        source: 'System',
+        deviceConfirmed: false,
+      ),
+    );
+
+    // Day 5: Friday - Morning (Container 1) & Night (Container 4)
+    final friMorning = monMorning.add(const Duration(days: 4));
+    final friNight = DateTime(monday.year, monday.month, monday.day + 4, 22, 0);
+    _events.add(
+      MedicationEvent(
+        id: 'ev_9',
+        medicineId: 'med_1',
+        medicineName: 'Paracetamol',
+        medicineStrength: '500 mg',
+        medicineForm: 'Tablet',
+        dose: '1 Tablet',
+        scheduledTime: friMorning,
+        eventTime: friMorning.add(const Duration(minutes: 3)),
+        containerId: 1,
+        timeSlot: 'Morning',
+        status: MedicationStatus.medicationEventRecorded,
+        source: 'IoT Device',
+        weightBefore: 12.7,
+        weightAfter: 12.2,
+        weightChange: -0.5,
+        deviceConfirmed: true,
+      ),
+    );
+    _events.add(
+      MedicationEvent(
+        id: 'ev_10',
+        medicineId: 'med_4',
+        medicineName: 'Atorvastatin',
+        medicineStrength: '20 mg',
+        medicineForm: 'Tablet',
+        dose: '1 Tablet',
+        scheduledTime: friNight,
+        eventTime: null,
+        containerId: 4,
+        timeSlot: 'Night',
+        status: MedicationStatus.scheduled,
+        source: 'System',
+        deviceConfirmed: false,
+      ),
+    );
+
+    // Day 6: Saturday - Morning (Container 1) & Afternoon (Container 2)
+    final satMorning = monMorning.add(const Duration(days: 5));
+    final satAfternoon = DateTime(monday.year, monday.month, monday.day + 5, 13, 0);
+    _events.add(
+      MedicationEvent(
+        id: 'ev_11',
+        medicineId: 'med_1',
+        medicineName: 'Paracetamol',
+        medicineStrength: '500 mg',
+        medicineForm: 'Tablet',
+        dose: '1 Tablet',
+        scheduledTime: satMorning,
+        eventTime: null,
+        containerId: 1,
+        timeSlot: 'Morning',
+        status: MedicationStatus.scheduled,
+        source: 'System',
+        deviceConfirmed: false,
+      ),
+    );
+    _events.add(
+      MedicationEvent(
+        id: 'ev_12',
+        medicineId: 'med_1',
+        medicineName: 'Paracetamol',
+        medicineStrength: '500 mg',
+        medicineForm: 'Tablet',
+        dose: '1 Tablet',
+        scheduledTime: satAfternoon,
+        eventTime: null,
+        containerId: 2,
+        timeSlot: 'Afternoon',
+        status: MedicationStatus.scheduled,
+        source: 'System',
+        deviceConfirmed: false,
+      ),
+    );
+
+    // Day 7: Sunday - Morning (Container 1) & Night (Container 4)
+    final sunMorning = monMorning.add(const Duration(days: 6));
+    final sunNight = DateTime(monday.year, monday.month, monday.day + 6, 22, 0);
+    _events.add(
+      MedicationEvent(
+        id: 'ev_13',
+        medicineId: 'med_1',
+        medicineName: 'Paracetamol',
+        medicineStrength: '500 mg',
+        medicineForm: 'Tablet',
+        dose: '1 Tablet',
+        scheduledTime: sunMorning,
+        eventTime: null,
+        containerId: 1,
+        timeSlot: 'Morning',
+        status: MedicationStatus.scheduled,
+        source: 'System',
+        deviceConfirmed: false,
+      ),
+    );
+    _events.add(
+      MedicationEvent(
+        id: 'ev_14',
+        medicineId: 'med_4',
+        medicineName: 'Atorvastatin',
+        medicineStrength: '20 mg',
+        medicineForm: 'Tablet',
+        dose: '1 Tablet',
+        scheduledTime: sunNight,
+        eventTime: null,
+        containerId: 4,
+        timeSlot: 'Night',
+        status: MedicationStatus.scheduled,
         source: 'System',
         deviceConfirmed: false,
       ),

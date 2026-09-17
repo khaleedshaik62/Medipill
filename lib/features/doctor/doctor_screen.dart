@@ -86,7 +86,7 @@ class DoctorScreen extends StatelessWidget {
                         Row(
                           children: [
                             _buildStatTile('Scheduled Events', '$totalScheduled', Icons.calendar_today_outlined),
-                            _buildStatTile('Recorded Activity', '$recorded', Icons.check_circle_outline),
+                            _buildStatTile('Recorded Events', '$recorded', Icons.check_circle_outline),
                           ],
                         ),
                         const SizedBox(height: 10),
@@ -102,12 +102,12 @@ class DoctorScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                              'Device Event Completion Rate:',
+                              'Recorded vs Scheduled Events:',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                             ),
                             Text(
-                              '$percentage%',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.brandStart),
+                              '$recorded / $totalScheduled ($percentage%)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.brandStart),
                             ),
                           ],
                         ),
@@ -119,7 +119,7 @@ class DoctorScreen extends StatelessWidget {
 
                 // Weekly Matrix trends
                 const Text(
-                  'WEEKLY MEDICATION MONITORING TRENDS (MON–SUN)',
+                  'MEDICATION EVENT RECORDING TREND (MON–SUN)',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary, letterSpacing: 1.0),
                 ),
                 const SizedBox(height: 8),

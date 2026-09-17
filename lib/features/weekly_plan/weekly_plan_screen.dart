@@ -67,6 +67,7 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
         if (_selectedStatusFilter != 'All') {
           weekEvents = weekEvents.where((e) {
             switch (_selectedStatusFilter) {
+              case 'Recorded':
               case 'Completed':
                 return e.status == MedicationStatus.medicationEventRecorded;
               case 'Due Soon':
@@ -344,7 +345,7 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
             }).toList(),
           ),
           const SizedBox(width: 12),
-          ...['All', 'Completed', 'Due Soon', 'Missed', 'Unconfirmed'].map((status) {
+          ...['All', 'Recorded', 'Due Soon', 'Missed', 'Unconfirmed'].map((status) {
             final isSelected = _selectedStatusFilter == status;
             return Padding(
               padding: const EdgeInsets.only(right: 6.0),
@@ -406,7 +407,7 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
     final initialChar = event.medicineName.substring(0, 1).toUpperCase();
 
     return Tooltip(
-      message: '${event.medicineName}\nContainer ${event.containerId} · ${event.timeSlot}\nStatus: ${event.status.name}',
+      message: '${event.medicineName}\nContainer ${event.containerId} · ${event.timeSlot}\nStatus: ${_formatStatusName(event.status)}',
       child: Container(
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
@@ -426,6 +427,27 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
     );
   }
 
+  String _formatStatusName(MedicationStatus status) {
+    switch (status) {
+      case MedicationStatus.medicationEventRecorded:
+        return 'Medication Event Recorded';
+      case MedicationStatus.unconfirmed:
+        return 'Unconfirmed Event';
+      case MedicationStatus.missed:
+        return 'Missed Event';
+      case MedicationStatus.due:
+        return 'Due Soon';
+      case MedicationStatus.snoozed:
+        return 'Snoozed';
+      case MedicationStatus.interactionDetected:
+        return 'Container Interaction Detected';
+      case MedicationStatus.weightChangeDetected:
+        return 'Weight Change Detected';
+      case MedicationStatus.scheduled:
+        return 'Scheduled Event';
+    }
+  }
+
   Widget _buildLegendCard() {
     return Card(
       child: Padding(
@@ -442,7 +464,7 @@ class _WeeklyPlanScreenState extends State<WeeklyPlanScreen> {
               spacing: 16,
               runSpacing: 8,
               children: [
-                _buildLegendItem('Completed', AppColors.statusCompleted, Icons.check_circle),
+                _buildLegendItem('Event Recorded', AppColors.statusCompleted, Icons.check_circle),
                 _buildLegendItem('Due Soon', AppColors.statusDue, Icons.priority_high),
                 _buildLegendItem('Missed', AppColors.statusMissed, Icons.cancel),
                 _buildLegendItem('Upcoming', AppColors.statusUpcoming, Icons.watch_later_outlined),
