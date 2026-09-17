@@ -28,6 +28,12 @@ class AppState extends ChangeNotifier {
   late final Future<void> initialization;
 
   bool isLoading = false;
+  String? authErrorMessage;
+
+  void clearAuthError() {
+    authErrorMessage = null;
+    notifyListeners();
+  }
 
   AppState({
     required this.authService,
@@ -101,22 +107,46 @@ class AppState extends ChangeNotifier {
   }
 
   // Auth Operations
-  Future<void> login(String email, String password) async {
+  Future<bool> login(String email, String password) async {
     isLoading = true;
+    authErrorMessage = null;
     notifyListeners();
     try {
       currentUser = await authService.login(email, password);
+      authErrorMessage = null;
+      return true;
+    } catch (e) {
+      authErrorMessage = e is AuthException ? e.message : e.toString();
+      return false;
     } finally {
       isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> signUp(String name, String email, String phone, String? dob) async {
+  Future<bool> signUp({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    String? dob,
+  }) async {
     isLoading = true;
+    authErrorMessage = null;
     notifyListeners();
     try {
-      currentUser = await authService.signUp(name, email, phone, dob);
+      currentUser = await authService.signUp(
+        name: name,
+        email: email,
+        password: password,
+        phone: phone,
+        dob: dob,
+      );
+      authErrorMessage = null;
+      return true;
+    } catch (e) {
+      authErrorMessage = e is AuthException ? e.message : e.toString();
+      return false;
     } finally {
       isLoading = false;
       notifyListeners();
@@ -124,6 +154,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    authErrorMessage = null;
     await authService.logout();
     currentUser = null;
     notifyListeners();

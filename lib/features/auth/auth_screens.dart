@@ -271,13 +271,17 @@ class WelcomeScreen extends StatelessWidget {
 class LoginScreen extends StatefulWidget {
   final VoidCallback onBack;
   final Function(String email, String password) onLoginPressed;
+  final VoidCallback? onSwitchToSignUp;
   final bool isLoading;
+  final String? errorMessage;
 
   const LoginScreen({
     super.key,
     required this.onBack,
     required this.onLoginPressed,
+    this.onSwitchToSignUp,
     required this.isLoading,
+    this.errorMessage,
   });
 
   @override
@@ -288,6 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -329,7 +334,36 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 48),
+                const SizedBox(height: 32),
+
+                // Error message banner
+                if (widget.errorMessage != null && widget.errorMessage!.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusMissed.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.statusMissed.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: AppColors.statusMissed, size: 22),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.errorMessage!,
+                            style: const TextStyle(
+                              color: AppColors.statusMissed,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
@@ -340,20 +374,47 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     prefixIcon: const Icon(Icons.email_outlined),
                   ),
-                  validator: (val) => val == null || !val.contains('@') ? 'Enter a valid email' : null,
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Email address is required';
+                    }
+                    if (!val.contains('@')) {
+                      return 'Enter a valid email address';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 20),
                 TextFormField(
                   controller: _passwordController,
-                  obscureText: true,
+                  obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Password',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                     prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
-                  validator: (val) => val == null || val.length < 6 ? 'Password must be 6+ characters' : null,
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Password is required';
+                    }
+                    if (val.trim().length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 32),
                 widget.isLoading
@@ -361,7 +422,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     : ElevatedButton(
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
-                            widget.onLoginPressed(_emailController.text, _passwordController.text);
+                            widget.onLoginPressed(
+                              _emailController.text.trim(),
+                              _passwordController.text.trim(),
+                            );
                           }
                         },
                         style: ElevatedButton.styleFrom(
@@ -389,6 +453,32 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
+                if (widget.onSwitchToSignUp != null) ...[
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Don't have an account?",
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: widget.onSwitchToSignUp,
+                        child: const Text(
+                          'Create Account',
+                          style: TextStyle(
+                            color: AppColors.brandStart,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -401,14 +491,24 @@ class _LoginScreenState extends State<LoginScreen> {
 // SignUp Screen
 class SignUpScreen extends StatefulWidget {
   final VoidCallback onBack;
-  final Function(String name, String email, String phone, String? dob) onSignUpPressed;
+  final Function({
+    required String name,
+    required String email,
+    required String password,
+    required String phone,
+    String? dob,
+  }) onSignUpPressed;
+  final VoidCallback? onSwitchToLogin;
   final bool isLoading;
+  final String? errorMessage;
 
   const SignUpScreen({
     super.key,
     required this.onBack,
     required this.onSignUpPressed,
+    this.onSwitchToLogin,
     required this.isLoading,
+    this.errorMessage,
   });
 
   @override
@@ -418,14 +518,20 @@ class SignUpScreen extends StatefulWidget {
 class _SignUpScreenState extends State<SignUpScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _phoneController = TextEditingController();
   final _dobController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _phoneController.dispose();
     _dobController.dispose();
     super.dispose();
@@ -464,7 +570,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 28),
+
+                // Error message banner
+                if (widget.errorMessage != null && widget.errorMessage!.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusMissed.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.statusMissed.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: AppColors.statusMissed, size: 22),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            widget.errorMessage!,
+                            style: const TextStyle(
+                              color: AppColors.statusMissed,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 TextFormField(
                   controller: _nameController,
                   decoration: InputDecoration(
@@ -474,7 +609,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     prefixIcon: const Icon(Icons.person_outline),
                   ),
-                  validator: (val) => val == null || val.isEmpty ? 'Enter your name' : null,
+                  validator: (val) => val == null || val.trim().isEmpty ? 'Enter your full name' : null,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -487,7 +622,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     prefixIcon: const Icon(Icons.email_outlined),
                   ),
-                  validator: (val) => val == null || !val.contains('@') ? 'Enter a valid email' : null,
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Enter a valid email';
+                    }
+                    if (!val.contains('@')) {
+                      return 'Enter a valid email address';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -500,7 +643,71 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     ),
                     prefixIcon: const Icon(Icons.phone_outlined),
                   ),
-                  validator: (val) => val == null || val.length < 8 ? 'Enter valid phone number' : null,
+                  validator: (val) => val == null || val.trim().length < 8 ? 'Enter valid phone number' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Password is required';
+                    }
+                    if (val.trim().length < 6) {
+                      return 'Password must be at least 6 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                        color: AppColors.textSecondary,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
+                  ),
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please confirm your password';
+                    }
+                    if (val.trim() != _passwordController.text.trim()) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -522,10 +729,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         onPressed: () {
                           if (_formKey.currentState!.validate()) {
                             widget.onSignUpPressed(
-                              _nameController.text,
-                              _emailController.text,
-                              _phoneController.text,
-                              _dobController.text.isEmpty ? null : _dobController.text,
+                              name: _nameController.text.trim(),
+                              email: _emailController.text.trim(),
+                              password: _passwordController.text.trim(),
+                              phone: _phoneController.text.trim(),
+                              dob: _dobController.text.trim().isEmpty ? null : _dobController.text.trim(),
                             );
                           }
                         },
@@ -554,6 +762,32 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         ),
                       ),
+                if (widget.onSwitchToLogin != null) ...[
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Already have an account?',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: widget.onSwitchToLogin,
+                        child: const Text(
+                          'Sign In',
+                          style: TextStyle(
+                            color: AppColors.brandStart,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

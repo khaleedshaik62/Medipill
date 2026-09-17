@@ -71,6 +71,7 @@ class _MediPillAppState extends State<MediPillApp> {
   bool _showSplash = true;
   bool _isWelcome = true;
   bool _isSignUp = false;
+  bool _wasLoggedIn = false;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +90,13 @@ class _MediPillAppState extends State<MediPillApp> {
       builder: (context, child) {
         final isLoggedIn = state.currentUser != null;
 
+        // Ensure user is returned to LoginScreen upon logging out
+        if (_wasLoggedIn && !isLoggedIn) {
+          _isWelcome = false;
+          _isSignUp = false;
+        }
+        _wasLoggedIn = isLoggedIn;
+
         Widget screen = const Scaffold(body: Center(child: CircularProgressIndicator()));
 
         if (_showSplash) {
@@ -103,12 +111,14 @@ class _MediPillAppState extends State<MediPillApp> {
           if (_isWelcome) {
             screen = WelcomeScreen(
               onLogin: () {
+                state.clearAuthError();
                 setState(() {
                   _isWelcome = false;
                   _isSignUp = false;
                 });
               },
               onSignUp: () {
+                state.clearAuthError();
                 setState(() {
                   _isWelcome = false;
                   _isSignUp = true;
@@ -118,26 +128,56 @@ class _MediPillAppState extends State<MediPillApp> {
           } else if (_isSignUp) {
             screen = SignUpScreen(
               onBack: () {
+                state.clearAuthError();
                 setState(() {
                   _isWelcome = true;
                 });
               },
-              onSignUpPressed: (name, email, phone, dob) {
-                state.signUp(name, email, phone, dob);
+              onSwitchToLogin: () {
+                state.clearAuthError();
+                setState(() {
+                  _isSignUp = false;
+                  _isWelcome = false;
+                });
+              },
+              onSignUpPressed: ({
+                required String name,
+                required String email,
+                required String password,
+                required String phone,
+                String? dob,
+              }) {
+                state.signUp(
+                  name: name,
+                  email: email,
+                  password: password,
+                  phone: phone,
+                  dob: dob,
+                );
               },
               isLoading: state.isLoading,
+              errorMessage: state.authErrorMessage,
             );
           } else {
             screen = LoginScreen(
               onBack: () {
+                state.clearAuthError();
                 setState(() {
                   _isWelcome = true;
+                });
+              },
+              onSwitchToSignUp: () {
+                state.clearAuthError();
+                setState(() {
+                  _isSignUp = true;
+                  _isWelcome = false;
                 });
               },
               onLoginPressed: (email, password) {
                 state.login(email, password);
               },
               isLoading: state.isLoading,
+              errorMessage: state.authErrorMessage,
             );
           }
         } else {

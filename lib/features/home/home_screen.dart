@@ -77,26 +77,30 @@ class HomeScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Good Morning, $userName',
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Good Morning, $userName',
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Stay on track with your medication.',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white.withValues(alpha: 0.85),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Stay on track with your medication.',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                             Row(
                               children: [
